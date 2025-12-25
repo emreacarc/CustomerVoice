@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Streamlit
+.streamlit/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Backup files (Excluded from GitHub)
+streamlit_app_v3_backup_final.py
+streamlit_app_v3_yedek_kararli.py
+README_yedek.md
+requirements_yedek.txt
+
+# Local Large Models (Excluded from GitHub, fallback to Hugging Face)
+yerel_modeller/
+
+# Large Files are handled by Git LFS (tracked in .gitattributes)
