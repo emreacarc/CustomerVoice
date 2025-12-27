@@ -349,35 +349,49 @@ st.markdown("""
 @st.cache_resource
 def load_models():
     """Model ve tokenizer'ı yükle"""
-    # Streamlit Cloud için daha güvenli dizin tanımı
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(base_path, "bert_based_classification_models")
+    # Önce relative path dene (Streamlit Cloud için genelde daha güvenli)
+    model_path = "bert_based_classification_models"
+    
+    # Eğer relative path bulunamazsa absolute path oluştur
+    if not os.path.exists(model_path):
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_path, "bert_based_classification_models")
     
     # Dizin var mı kontrol et
     if not os.path.exists(model_path):
         st.error(f"⚠️ Model dizini bulunamadı: {model_path}")
         return None, None, None, "cpu"
 
+    # LFS Kontrolü: model.safetensors dosyasının boyutunu kontrol et
+    safetensors_path = os.path.join(model_path, "model.safetensors")
+    if os.path.exists(safetensors_path):
+        file_size = os.path.getsize(safetensors_path)
+        if file_size < 10000: # 10KB'dan küçükse muhtemelen LFS pointer'dır
+            st.error("⚠️ Model dosyası çok küçük görünüyor. GitHub LFS dosyaları tam indirilmemiş olabilir.")
+            st.info("💡 Lütfen GitHub deponuzda 'model.safetensors' dosyasının boyutunun ~420MB olduğunu doğrulayın.")
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     try:
-        # local_files_only=True kaldırıldı. Dosya eksikse HFValidationError yerine 
-        # daha anlamlı bir hata mesajı almamızı sağlar.
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        # local_files_only=True ekleyerek dışarıya (HF Hub) gitmesini engelliyoruz 
+        # çünkü model zaten klasörde olmalı. Bu HFValidationError'ı önleyebilir.
+        tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
         
         clf_model = AutoModelForSequenceClassification.from_pretrained(
-            model_path
+            model_path, local_files_only=True
         ).to(device).eval()
         
         emb_model = AutoModel.from_pretrained(
-            model_path
+            model_path, local_files_only=True
         ).to(device).eval()
         
         return tokenizer, clf_model, emb_model, device
     except Exception as e:
         st.error(f"⚠️ Modeller yüklenirken hata oluştu: {str(e)}")
-        # LFS (Large File Storage) kaynaklı boş dosya hatası kontrolü
-        if "not a valid json" in str(e).lower() or "config.json" in str(e).lower():
+        # Hata mesajında Repo id geçiyorsa bu HF'in klasörü bulamadığı anlamına gelir
+        if "repo id" in str(e).lower():
+            st.info(f"💡 İpucu: Hugging Face klasörü geçerli bir model dizini olarak tanımadı. Yol: {model_path}")
+        elif "not a valid json" in str(e).lower() or "config.json" in str(e).lower():
             st.info("💡 İpucu: Model dosyalarınız GitHub'a LFS ile tam yüklenmemiş olabilir. GitHub deponuzdaki dosyaların boyutunu kontrol edin.")
         return None, None, None, device
 
