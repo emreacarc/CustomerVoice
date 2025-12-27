@@ -349,22 +349,37 @@ st.markdown("""
 @st.cache_resource
 def load_models():
     """Model ve tokenizer'ı yükle"""
+    # Streamlit Cloud için daha güvenli dizin tanımı
     base_path = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(base_path, "bert_based_classification_models")
     
+    # Dizin var mı kontrol et
+    if not os.path.exists(model_path):
+        st.error(f"⚠️ Model dizini bulunamadı: {model_path}")
+        return None, None, None, "cpu"
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-    
-    clf_model = AutoModelForSequenceClassification.from_pretrained(
-        model_path, local_files_only=True
-    ).to(device).eval()
-    
-    emb_model = AutoModel.from_pretrained(
-        model_path, local_files_only=True
-    ).to(device).eval()
-    
-    return tokenizer, clf_model, emb_model, device
+    try:
+        # local_files_only=True kaldırıldı. Dosya eksikse HFValidationError yerine 
+        # daha anlamlı bir hata mesajı almamızı sağlar.
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        
+        clf_model = AutoModelForSequenceClassification.from_pretrained(
+            model_path
+        ).to(device).eval()
+        
+        emb_model = AutoModel.from_pretrained(
+            model_path
+        ).to(device).eval()
+        
+        return tokenizer, clf_model, emb_model, device
+    except Exception as e:
+        st.error(f"⚠️ Modeller yüklenirken hata oluştu: {str(e)}")
+        # LFS (Large File Storage) kaynaklı boş dosya hatası kontrolü
+        if "not a valid json" in str(e).lower() or "config.json" in str(e).lower():
+            st.info("💡 İpucu: Model dosyalarınız GitHub'a LFS ile tam yüklenmemiş olabilir. GitHub deponuzdaki dosyaların boyutunu kontrol edin.")
+        return None, None, None, device
 
 @st.cache_data
 def load_data():
@@ -372,6 +387,10 @@ def load_data():
     base_path = os.path.dirname(os.path.abspath(__file__))
     pkl_path = os.path.join(base_path, "df_weigthed_final.pkl")
     
+    if not os.path.exists(pkl_path):
+        st.error(f"⚠️ Veri dosyası bulunamadı: {pkl_path}")
+        return None
+        
     with open(pkl_path, "rb") as f:
         df = pickle.load(f)
     
@@ -1999,6 +2018,11 @@ def main():
     with st.spinner(t('loading_models')):
         tokenizer, clf_model, emb_model, device = load_models()
         df = load_data()
+    
+    # Modeller veya veri yüklenemediyse uygulamayı durdur
+    if tokenizer is None or clf_model is None or df is None:
+        st.warning("⚠️ Uygulama başlatılamadı. Lütfen yukarıdaki hata mesajlarını kontrol edin.")
+        st.stop()
     
     with col_tabs:
         tab1, tab2, tab3, tab4 = st.tabs(t('tabs'))
