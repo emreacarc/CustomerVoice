@@ -26,11 +26,12 @@ Thumbs.db
 # Logs
 *.log
 
-# Backup files (Excluded from GitHub)
+# Backup and Presentation files (Excluded from GitHub)
 streamlit_app_v3_backup_final.py
 streamlit_app_v3_yedek_kararli.py
 README_yedek.md
 requirements_yedek.txt
+sunumlar/
 
 # Local Large Models (Excluded from GitHub, fallback to Hugging Face)
 yerel_modeller/
